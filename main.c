@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #define FAIL 1
 
@@ -61,6 +62,35 @@ long receive_message(int local_socket, char *buffer, int BUFFER_SIZE) {
 
 int main(int argc, char *argv[]) {
     if (argc < 4) {
-
+        fprintf(stderr,"Usage: udpcliente <address> <port> <message> \n");
+        fprintf(stderr,"Where <address> is the server address\n");
+        fprintf(stderr,"<port> is the server port\n");
+        fprintf(stderr,"<message> is the message to be sent to the server\n");
+        fprintf(stderr,"Example:\n");
+        fprintf(stderr,"\tudpcliente localhost 1234 \"Hello World\"\n");
+        exit(FAIL);
     }
+
+    int target_port = atoi(argv[2]);
+    int local_socket = create_local_socket();
+    struct sockaddr_in target_address = create_target_address(argv[1], target_port);
+
+    int i = 0;
+    char msg_sent[1000];
+    char msg_recv[1000];
+    long nrec;
+
+    do {
+        printf("Try %d\n", i);
+        sprintf(msg_sent, "Try %d ", i);
+        strcat(msg_sent, argv[3]);
+
+        send_message(local_socket, target_address, msg_sent);
+
+        nrec = receive_message(local_socket, msg_recv, 1000);
+        printf("Response with %ld bytes >>> %s\n", nrec, msg_recv);
+
+        sleep(1);
+        ++i;
+    } while (i < 5000);
 }
