@@ -1,96 +1,105 @@
+#include <time.h>
 #include <stdio.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-#include <netdb.h>
-#include <stdlib.h>
-#include <errno.h>
 #include <string.h>
-#include <unistd.h>
+#include <stdlib.h>
+#include "udpclient.h"
 
-#define FAIL 1
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "EndlessLoop"
+#define NSEC_PER_SEC 1000000000
 
-int create_local_socket(void) {
-    int local_socket;
-    local_socket = socket(PF_INET, SOCK_DGRAM, 0);
-    if (local_socket < 0) {
-        perror("socket");
-        return -1;
+int main(int argc, char* argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: trabalho1 <address> <port>");
+        exit(1);
     }
-    return local_socket;
-}
+    int port = atoi(argv[2]);
+    setup_sockets(port, argv[1]);
 
-struct sockaddr_in create_target_address(char *target, int target_port) {
-    struct sockaddr_in server;
-    struct hostent *internet_target;
-    struct in_addr target_ip;
+    char response[1000];
+//    exchange_message("st-0", response);
 
-    if (inet_aton(target, &target_ip))
-        internet_target = gethostbyaddr((char *) &target_ip, sizeof(target_ip), AF_INET);
-    else
-        internet_target = gethostbyname(target);
+    struct timespec t;
+    long interval = 30000000;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    t.tv_sec++;
 
-    if (internet_target == NULL) {
-        fprintf(stderr, "Invalid network address\n");
-        exit(FAIL);
+    //constants
+    const float R = 0.001f,
+                S = 4184,
+                B = 4,
+                P = 1000,
+                Href = 2.5f,
+                Tref = 40;
+    // sensors
+    float T, Ta, Ti, No, H;
+    // actuators
+    float Q, Ni, Na, Nf;
+
+    char buffer[20] = "a__";
+
+    while (1) {
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t, NULL);
+
+        exchange_message("sta0", response);
+        Ta = strtof(response + 3, NULL);
+        exchange_message("st-0", response);
+        T = strtof(response + 3, NULL);
+        exchange_message("sti0", response);
+        Ti = strtof(response + 3, NULL);
+        exchange_message("sno0", response);
+        No = strtof(response + 3, NULL);
+        exchange_message("sh-0", response);
+        H = strtof(response + 3, NULL);
+
+        /* PID control */
+
+        Na = (Ta + Ti * No * R * S - Tref * (No * R * S + 1)) / ((Ti - 80) * R * S);
+
+        if (Na > 10) {
+            Na = 10;
+        } else if (Na < 0) {
+            Na = 0;
+        }
+
+        Ni = No - Na;
+
+        if (Ni > 100) {
+            Ni = 100;
+        } else if (Ni < 0) {
+            Ni = 0;
+        }
+
+        Nf = Ni + Na - No;
+
+        Q = S * Ni * (Tref - Ti) - S * Na * (80 - Tref) + (Tref - Ta) / R;
+
+        if (Q > 1000000) {
+            Q = 1000000;
+        } else if (Q < 0) {
+            Q = 0;
+        }
+
+        buffer[1] = 'n';
+        buffer[2] = 'a';
+        gcvt(Na, 6, buffer + 3);
+        exchange_message(buffer, response);
+        buffer[2] = 'i';
+        gcvt(Ni, 6, buffer + 3);
+        exchange_message(buffer, response);
+        buffer[2] = 'f';
+        gcvt(Nf, 6, buffer + 3);
+        exchange_message(buffer, response);
+        buffer[1] = 'q';
+        buffer[2] = '-';
+        gcvt(Q, 6, buffer + 3);
+        exchange_message(buffer, response);
+
+        t.tv_nsec += interval;
+        while (t.tv_nsec >= NSEC_PER_SEC) {
+            t.tv_nsec -= NSEC_PER_SEC;
+            t.tv_sec++;
+        }
     }
-
-    memset((char *) &server, 0, sizeof(server));
-    memcpy(&server.sin_addr, internet_target->h_addr_list[0], sizeof(server.sin_addr));
-    server.sin_family = AF_INET;
-    server.sin_port = htons(target_port);
-
-    return server;
 }
-
-void send_message(int local_socket, struct sockaddr_in target_address, char *message) {
-    if (sendto(local_socket, message, strlen(message) + 1, 0, (struct sockaddr *) &target_address, sizeof(target_address)) < 0) {
-        perror("sendto");
-    }
-}
-
-long receive_message(int local_socket, char *buffer, int BUFFER_SIZE) {
-    long received_bytes;
-
-    received_bytes = recvfrom(local_socket, buffer, BUFFER_SIZE, 0, NULL, 0);
-    if (received_bytes < 0) {
-        perror("recvfrom");
-    }
-    return received_bytes;
-}
-
-int main(int argc, char *argv[]) {
-    if (argc < 4) {
-        fprintf(stderr,"Usage: udpcliente <address> <port> <message> \n");
-        fprintf(stderr,"Where <address> is the server address\n");
-        fprintf(stderr,"<port> is the server port\n");
-        fprintf(stderr,"<message> is the message to be sent to the server\n");
-        fprintf(stderr,"Example:\n");
-        fprintf(stderr,"\tudpcliente localhost 1234 \"Hello World\"\n");
-        exit(FAIL);
-    }
-
-    int target_port = atoi(argv[2]);
-    int local_socket = create_local_socket();
-    struct sockaddr_in target_address = create_target_address(argv[1], target_port);
-
-    int i = 0;
-    char msg_sent[1000];
-    char msg_recv[1000];
-    long nrec;
-
-    do {
-        printf("Try %d\n", i);
-        sprintf(msg_sent, "Try %d ", i);
-        strcat(msg_sent, argv[3]);
-
-        send_message(local_socket, target_address, msg_sent);
-
-        nrec = receive_message(local_socket, msg_recv, 1000);
-        printf("Response with %ld bytes >>> %s\n", nrec, msg_recv);
-
-        sleep(1);
-        ++i;
-    } while (i < 5000);
-}
+#pragma clang diagnostic pop

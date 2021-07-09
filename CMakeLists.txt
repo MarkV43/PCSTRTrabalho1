@@ -3,4 +3,4 @@ project(Trabalho1 C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(Trabalho1 main.c)
+add_executable(Trabalho1 main.c udpclient.c udpclient.h)
