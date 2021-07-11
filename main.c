@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
 
     char buffer[20] = "a__";
 
-    int i = 0;
+    int screenInterval = 0;
     while (1) {
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t, NULL);
 
@@ -102,10 +102,10 @@ int main(int argc, char* argv[]) {
         Vder = (V - Vpre) / 0.03f;
         Vpre = V;
 
-        if (++i == 33) {
-            i = 0;
-            printf("%f\n%f\nNa: %f\n", TintNa, TintNi, (Ta + Ti * No * R * S - Tref * (No * R * S + 1)) / ((Ti - 80) * R * S));
-        }
+//        if (++i == 33) {
+//            i = 0;
+//            printf("%f\n%f\nNa: %f\n", TintNa, TintNi, (Ta + Ti * No * R * S - Tref * (No * R * S + 1)) / ((Ti - 80) * R * S));
+//        }
 
         /* PID control */
 
@@ -182,13 +182,12 @@ int main(int argc, char* argv[]) {
         gcvt(Q, 6, buffer + 3);
         exchange_message(buffer, response);
 
-        int screenInterval = 0;
         screenInterval += 1;
         if (screenInterval >=33){
             screenInterval = 0;
             printf("VALVES CONTROL:\n");
             printf("Auxiliar tank valve:");
-            printf("%f", Na);
+            printf("%f\n", Na);
             printf("Fresh water valve:");
             printf("%f\n", Ni);
             printf("Sewer outlet valve:");
@@ -196,11 +195,12 @@ int main(int argc, char* argv[]) {
             printf("Heating element:");
             printf("%f\n", Q);
             printf("-----------------------\n");
-            printf("BOILER SENSORS:");
+            printf("BOILER SENSORS:\n");
             printf("Temperature:");
             printf("%f\n", T);
             printf("Water level:");
             printf("%f\n", H);
+            printf("=======================\n");
         }
 
         t.tv_nsec += interval;
