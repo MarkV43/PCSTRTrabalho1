@@ -182,6 +182,27 @@ int main(int argc, char* argv[]) {
         gcvt(Q, 6, buffer + 3);
         exchange_message(buffer, response);
 
+        int screenInterval = 0;
+        screenInterval += 1;
+        if (screenInterval >=33){
+            screenInterval = 0;
+            printf("VALVES CONTROL:\n");
+            printf("Auxiliar tank valve:");
+            printf("%f", Na);
+            printf("Fresh water valve:");
+            printf("%f\n", Ni);
+            printf("Sewer outlet valve:");
+            printf("%f\n", Nf);
+            printf("Heating element:");
+            printf("%f\n", Q);
+            printf("-----------------------\n");
+            printf("BOILER SENSORS:");
+            printf("Temperature:");
+            printf("%f\n", T);
+            printf("Water level:");
+            printf("%f\n", H);
+        }
+
         t.tv_nsec += interval;
         while (t.tv_nsec >= NSEC_PER_SEC) {
             t.tv_nsec -= NSEC_PER_SEC;
